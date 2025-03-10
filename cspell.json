@@ -1,0 +1,5 @@
+{
+	"import": ["@d-zero/cspell-config"],
+	"ignorePaths": [".vscode/*"],
+	"words": []
+}

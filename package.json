@@ -1,0 +1,68 @@
+{
+	"name": "@d-zero/mcp-server",
+	"version": "0.1.0-alpha.0",
+	"description": "D-Zero frontend coding MCP server",
+	"repository": "https://github.com/d-zero-dev/mcp-server.git",
+	"author": "D-ZERO Co., Ltd.",
+	"license": "MIT",
+	"private": false,
+	"publishConfig": {
+		"access": "public"
+	},
+	"type": "module",
+	"exports": {
+		".": {
+			"import": "./dist/index.js"
+		}
+	},
+	"files": [
+		"dist"
+	],
+	"scripts": {
+		"build": "tsc",
+		"watch": "tsc --watch",
+		"clean": "tsc --build --clean",
+		"test": "vitest run",
+		"lint": "run-s lint:eslint lint:prettier lint:textlint lint:cspell",
+		"lint:cspell": "cspell --no-progress --show-suggestions \"{*,src/**/*}/\"",
+		"lint:eslint": "eslint --fix \"{*,src/**/*}.{js,cjs,mjs,jsx,ts,cts,mts,tsx}\"",
+		"lint:prettier": "prettier --write \"{*,src/**/*}.{md,json,js,cjs,mjs,jsx,ts,cts,mts,tsx}\"",
+		"lint:textlint": "textlint --fix \"./{*,src/**/*}.{md}\"",
+		"release": "lerna publish --exact --conventional-commits --conventional-graduate",
+		"release:next": "lerna publish --dist-tag next --exact --force-publish --conventional-commits --conventional-prerelease --preid alpha",
+		"prerelease": "yarn build; yarn test",
+		"prepare": "husky",
+		"commit": "cz",
+		"co": "cz",
+		"up": "npx npm-check-updates --interactive --format group"
+	},
+	"config": {
+		"commitizen": {
+			"path": "./node_modules/cz-customizable"
+		},
+		"cz-customizable": {
+			"config": "./node_modules/@d-zero/cz-config"
+		}
+	},
+	"dependencies": {
+		"@modelcontextprotocol/sdk": "1.6.1"
+	},
+	"devDependencies": {
+		"@d-zero/commitlint-config": "5.0.0-alpha.60",
+		"@d-zero/cspell-config": "5.0.0-alpha.60",
+		"@d-zero/eslint-config": "5.0.0-alpha.60",
+		"@d-zero/lint-staged-config": "5.0.0-alpha.60",
+		"@d-zero/prettier-config": "5.0.0-alpha.60",
+		"@d-zero/textlint-config": "5.0.0-alpha.60",
+		"@d-zero/tsconfig": "0.4.1",
+		"husky": "9.1.7",
+		"npm-run-all2": "7.0.2",
+		"typescript": "5.8.2",
+		"vitest": "3.0.8"
+	},
+	"packageManager": "npm@11.2.0",
+	"volta": {
+		"node": "22.14.0",
+		"npm": "11.2.0"
+	}
+}
