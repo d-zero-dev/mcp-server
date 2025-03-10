@@ -18,6 +18,9 @@
 	"files": [
 		"dist"
 	],
+	"bin": {
+		"mcp-server": "./dist/bin.js"
+	},
 	"scripts": {
 		"build": "tsc",
 		"watch": "tsc --watch",
