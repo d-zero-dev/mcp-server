@@ -1,6 +1,6 @@
 {
 	"name": "@d-zero/mcp-server",
-	"version": "0.1.0-alpha.0",
+	"version": "0.1.0",
 	"description": "D-Zero frontend coding MCP server",
 	"repository": "https://github.com/d-zero-dev/mcp-server.git",
 	"author": "D-ZERO Co., Ltd.",
