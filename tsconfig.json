@@ -1,9 +1,4 @@
 {
 	"extends": ["@d-zero/tsconfig"],
-	"compilerOptions": {
-		"outDir": "./dist",
-		"rootDir": "./src"
-	},
-	"include": ["./src/**/*"],
-	"exclude": ["node_modules", "dist", "./src/**/*.spec.ts"]
+	"exclude": ["node_modules", "dist", "**/*.js", "**/*.mjs"]
 }
