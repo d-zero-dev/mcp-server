@@ -70,20 +70,16 @@ describe('Figma Client', () => {
 				).rejects.toThrow();
 			});
 
-			it('should return error response when using getFigmaImage with invalid params', async () => {
+			it('should throw error when using getFigmaImage with invalid params', async () => {
 				// Arrange
-				const nodeId = 'invalid-file-id:invalid-node-id';
+				const fileId = 'invalid-file-id';
+				const nodeId = 'invalid-node-id';
 				const format: ImageFormat = 'png';
 				const scale = 1;
-				const params = { nodeId, format, scale };
-
-				// Act
-				const result = await getFigmaImage(params);
+				const params = { fileId, nodeId, format, scale };
 
 				// Assert
-				expect(result).toBeDefined();
-				expect(result.content).toBeDefined();
-				expect(result.isError).toBe(true);
+				await expect(getFigmaImage(params)).rejects.toThrowError();
 			});
 
 			it('should throw error when fetching nodes data with invalid API key', async () => {
@@ -155,26 +151,29 @@ describe('Figma Client', () => {
 			it('should successfully get image URL using getFigmaImage with valid token', async () => {
 				// Arrange
 				const figmaUrl =
-					process.env.FIGMA_TEST_URL ||
+					process.env.FIGMA_TEST_URL ??
 					'https://www.figma.com/file/abc123/test?node-id=123-456';
-				const fileId = extractFigmaFileId(figmaUrl) || 'abc123';
-				const nodeIds =
-					extractNodeIds(figmaUrl).length > 0 ? extractNodeIds(figmaUrl) : ['123-456'];
-				const nodeId = `${fileId}:${nodeIds[0]}`;
+				const fileId = extractFigmaFileId(figmaUrl) ?? 'abc123';
+				const nodeIds = extractNodeIds(figmaUrl);
+				const nodeId = nodeIds[0] ?? '123-456';
 				const format: ImageFormat = 'png';
 				const scale = 1;
-				const params = { nodeId, format, scale };
+				const params = { fileId, nodeId, format, scale };
 
 				// Act
 				const result = await getFigmaImage(params);
 
+				console.log(figmaUrl, fileId, result);
+
 				// Assert
 				expect(result).toBeDefined();
+				expect(result.isError).toBeUndefined();
 				expect(result.content).toBeDefined();
 				expect(result.content?.length).toBeGreaterThan(0);
 				expect(result.content?.[0]?.text).toBeDefined();
 				expect(typeof result.content?.[0]?.text).toBe('string');
 				expect(result.content?.[0]?.text?.length).toBeGreaterThan(0);
+				expect(result.content?.[0]?.text.startsWith('https://figma')).toBe(true);
 			});
 		});
 	});

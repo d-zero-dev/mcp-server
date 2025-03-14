@@ -77,7 +77,8 @@ class CodingGuidelinesServer {
 					// Convert arguments to GetFigmaImageParams
 					const args = request.params.arguments;
 					return getFigmaImage({
-						nodeId: String(args.nodeId),
+						fileId: args.fileId as string,
+						nodeId: args.nodeId as string,
 						format: args.format as ImageFormat | undefined,
 						scale: args.scale as number | undefined,
 					});
@@ -120,6 +121,10 @@ class CodingGuidelinesServer {
 					inputSchema: {
 						type: 'object',
 						properties: {
+							fileId: {
+								type: 'string',
+								description: 'Figma file ID (e.g.: abcdef123456)',
+							},
 							nodeId: {
 								type: 'string',
 								description: 'Figma node ID (e.g.: 123:456)',
@@ -136,7 +141,7 @@ class CodingGuidelinesServer {
 								description: 'Image scale factor (1-4, default: 1)',
 							},
 						},
-						required: ['nodeId'],
+						required: ['fileId', 'nodeId'],
 					},
 				},
 			],
