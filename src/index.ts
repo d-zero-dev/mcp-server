@@ -1,3 +1,5 @@
+import type { ImageFormat } from './figma-client.js';
+
 import fs from 'node:fs';
 import path from 'node:path';
 
@@ -11,7 +13,7 @@ import {
 } from '@modelcontextprotocol/sdk/types.js';
 
 import { getCodingGuidelines } from './coding-guideline.js';
-import { getFigmaData } from './figma-client.js';
+import { getFigmaData, getFigmaImage } from './figma-client.js';
 
 const packageJsonPath = path.resolve(import.meta.dirname, '../package.json');
 const packageJson = JSON.parse(fs.readFileSync(packageJsonPath, 'utf8'));
@@ -50,24 +52,40 @@ class CodingGuidelinesServer {
 	}
 
 	setupToolHandlers() {
-		// Map of tool names and their corresponding handlers
-		const toolHandlers = {
-			get_coding_guidelines: getCodingGuidelines,
-			get_figma_data: getFigmaData,
-		} as const;
-
 		// Tool request handler
 		this.#server.setRequestHandler(CallToolRequestSchema, async (request) => {
-			const handler = toolHandlers[request.params.name as keyof typeof toolHandlers];
+			const toolName = request.params.name;
 
-			if (!handler) {
-				throw new McpError(
-					ErrorCode.MethodNotFound,
-					`Unknown tool: ${request.params.name}`,
-				);
+			// Handle each tool separately to ensure correct typing
+			switch (toolName) {
+				case 'get_coding_guidelines': {
+					// getCodingGuidelines doesn't take any arguments
+					return getCodingGuidelines();
+				}
+				case 'get_figma_data': {
+					return getFigmaData(request.params.arguments);
+				}
+				case 'get_figma_image': {
+					// Type assertion for getFigmaImage
+					if (!request.params.arguments) {
+						throw new McpError(
+							ErrorCode.InvalidParams,
+							'Arguments are required for get_figma_image',
+						);
+					}
+
+					// Convert arguments to GetFigmaImageParams
+					const args = request.params.arguments;
+					return getFigmaImage({
+						nodeId: String(args.nodeId),
+						format: args.format as ImageFormat | undefined,
+						scale: args.scale as number | undefined,
+					});
+				}
+				// No default
 			}
 
-			return handler(request.params.arguments);
+			throw new McpError(ErrorCode.MethodNotFound, `Unknown tool: ${toolName}`);
 		});
 
 		this.#server.setRequestHandler(ListToolsRequestSchema, () => ({
@@ -94,6 +112,31 @@ class CodingGuidelinesServer {
 							},
 						},
 						required: ['figma_url'],
+					},
+				},
+				{
+					name: 'get_figma_image',
+					description: 'Get image URL from Figma node ID',
+					inputSchema: {
+						type: 'object',
+						properties: {
+							nodeId: {
+								type: 'string',
+								description: 'Figma node ID (e.g.: 123:456)',
+							},
+							format: {
+								type: 'string',
+								enum: ['png', 'jpg', 'svg'],
+								description: 'Image format (default: png)',
+							},
+							scale: {
+								type: 'number',
+								minimum: 1,
+								maximum: 4,
+								description: 'Image scale factor (1-4, default: 1)',
+							},
+						},
+						required: ['nodeId'],
 					},
 				},
 			],
