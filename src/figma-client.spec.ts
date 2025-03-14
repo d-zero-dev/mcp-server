@@ -1,3 +1,5 @@
+import type { ImageFormat } from './figma-client.js';
+
 import dotenv from 'dotenv';
 import { describe, it, expect, beforeAll } from 'vitest';
 
@@ -7,6 +9,8 @@ import {
 	analyzeFigmaError,
 	fetchFigmaFile,
 	fetchFigmaNodes,
+	fetchFigmaImage,
+	getFigmaImage,
 } from './figma-client.js';
 
 // Load .env file before running tests
@@ -100,90 +104,128 @@ describe('Figma Client', () => {
 	});
 
 	describe('Figma API Integration Tests', () => {
-		it('should extract file ID and node ID from Figma URL and send API request', async () => {
-			// Get Figma URL and API key from .env file
-			const figmaUrl = process.env.FIGMA_TEST_URL;
-			const apiKey = process.env.FIGMA_ACCESS_TOKEN;
+		// 異常系テスト
+		describe('Error cases', () => {
+			it('should throw error when fetching image URL for a node with invalid API key', async () => {
+				// Arrange
+				const apiKey = 'invalid-api-key';
+				const fileId = 'test-file-id';
+				const nodeIds = ['test-node-id'];
+				const format: ImageFormat = 'png';
+				const scale = 1;
 
-			if (!figmaUrl || !apiKey) {
-				console.warn(
-					'Environment variables FIGMA_TEST_URL or FIGMA_ACCESS_TOKEN are not set',
+				// Act & Assert
+				await expect(
+					fetchFigmaImage(apiKey, fileId, nodeIds, format, scale),
+				).rejects.toThrow();
+			});
+
+			it('should return error response when using getFigmaImage with invalid params', async () => {
+				// Arrange
+				const nodeId = 'invalid-file-id:invalid-node-id';
+				const format: ImageFormat = 'png';
+				const scale = 1;
+				const params = { nodeId, format, scale };
+
+				// Act
+				const result = await getFigmaImage(params);
+
+				// Assert
+				expect(result).toBeDefined();
+				expect(result.content).toBeDefined();
+				expect(result.isError).toBe(true);
+			});
+
+			it('should throw error when fetching nodes data with invalid API key', async () => {
+				// Arrange
+				const apiKey = 'invalid-api-key';
+				const fileId = 'test-file-id';
+				const nodeIds = ['test-node-id'];
+
+				// Act & Assert
+				await expect(fetchFigmaNodes(apiKey, fileId, nodeIds)).rejects.toThrow();
+			});
+
+			it('should throw error when fetching file data with invalid API key', async () => {
+				// Arrange
+				const apiKey = 'invalid-api-key';
+				const fileId = 'test-file-id';
+
+				// Act & Assert
+				await expect(fetchFigmaFile(apiKey, fileId)).rejects.toThrow();
+			});
+		});
+
+		// 正常系テスト
+		describe('Success cases', () => {
+			it('should successfully fetch image URL for a node', async () => {
+				// Skip test if no API token
+				if (!process.env.FIGMA_ACCESS_TOKEN) {
+					throw new Error('Environment variable FIGMA_ACCESS_TOKEN is not set');
+				}
+
+				// Get Figma URL from .env file
+				const figmaUrl = process.env.FIGMA_TEST_URL;
+				if (!figmaUrl) {
+					throw new Error('Environment variable FIGMA_TEST_URL is not set');
+				}
+
+				// Extract file ID and node IDs from URL
+				const fileId = extractFigmaFileId(figmaUrl);
+				const nodeIds = extractNodeIds(figmaUrl);
+
+				// Check if file ID and node IDs are valid
+				if (!fileId || nodeIds.length === 0) {
+					throw new Error('Could not extract file ID or no node IDs in test URL');
+				}
+
+				// Arrange
+				const apiKey = process.env.FIGMA_ACCESS_TOKEN;
+				const format: ImageFormat = 'png';
+				const scale = 1;
+
+				// Act
+				const response = await fetchFigmaImage(apiKey, fileId, nodeIds, format, scale);
+
+				// Assert
+				expect(response).toBeDefined();
+				expect(response.images).toBeDefined();
+
+				// Check if we got any image URLs
+				const imageUrls = Object.values(response.images);
+				expect(imageUrls.length).toBeGreaterThan(0);
+
+				// Check if at least one URL is valid
+				const hasValidUrl = imageUrls.some(
+					(url) => typeof url === 'string' && url.startsWith('http'),
 				);
-				return;
-			}
+				expect(hasValidUrl).toBe(true);
+			});
 
-			// Extract file ID and node IDs from URL
-			const fileId = extractFigmaFileId(figmaUrl);
-			const nodeIds = extractNodeIds(figmaUrl);
+			it('should successfully get image URL using getFigmaImage with valid token', async () => {
+				// Arrange
+				const figmaUrl =
+					process.env.FIGMA_TEST_URL ||
+					'https://www.figma.com/file/abc123/test?node-id=123-456';
+				const fileId = extractFigmaFileId(figmaUrl) || 'abc123';
+				const nodeIds =
+					extractNodeIds(figmaUrl).length > 0 ? extractNodeIds(figmaUrl) : ['123-456'];
+				const nodeId = `${fileId}:${nodeIds[0]}`;
+				const format: ImageFormat = 'png';
+				const scale = 1;
+				const params = { nodeId, format, scale };
 
-			// Validate extracted IDs
-			expect(fileId).toBeDefined();
-			expect(fileId).not.toBeNull();
+				// Act
+				const result = await getFigmaImage(params);
 
-			if (nodeIds.length > 0) {
-				console.log(`Extracted file ID: ${fileId}, node IDs: ${nodeIds.join(', ')}`);
-			} else {
-				console.log(`Extracted file ID: ${fileId}, no node IDs specified`);
-			}
-
-			try {
-				// If node IDs are specified, get node information
-				if (nodeIds.length > 0) {
-					try {
-						// Call API directly to get node data
-						const response = await fetchFigmaNodes(apiKey, fileId as string, nodeIds);
-
-						// Success if response exists
-						if (response) {
-							console.log('Figma API Response: Data retrieved successfully');
-							expect(response).toBeDefined();
-						} else {
-							console.log('Figma API Response: No data');
-							// Skip test if API key is invalid or expired
-							console.warn('API key may be invalid or expired');
-						}
-					} catch (error) {
-						// Catch error but allow test to pass
-						console.error(
-							'Figma API Error (Nodes):',
-							error instanceof Error ? error.message : error,
-						);
-						// Assert true to pass the test
-						expect(true).toBe(true);
-					}
-				} else {
-					try {
-						// Call API directly to get file data
-						const response = await fetchFigmaFile(apiKey, fileId as string);
-
-						// Success if response exists
-						if (response) {
-							console.log('Figma API Response: Data retrieved successfully');
-							expect(response).toBeDefined();
-						} else {
-							console.log('Figma API Response: No data');
-							// Skip test if API key is invalid or expired
-							console.warn('API key may be invalid or expired');
-						}
-					} catch (error) {
-						// Catch error but allow test to pass
-						console.error(
-							'Figma API Error (File):',
-							error instanceof Error ? error.message : error,
-						);
-						// Assert true to pass the test
-						expect(true).toBe(true);
-					}
-				}
-			} catch (error) {
-				if (error instanceof Error) {
-					console.error(`Figma API Error: ${error.message}`);
-					// Analyze error message for more detailed information
-					const errorMessage = analyzeFigmaError(error, { fileId: fileId as string });
-					console.error(`Detailed error: ${errorMessage}`);
-				}
-				throw error;
-			}
+				// Assert
+				expect(result).toBeDefined();
+				expect(result.content).toBeDefined();
+				expect(result.content?.length).toBeGreaterThan(0);
+				expect(result.content?.[0]?.text).toBeDefined();
+				expect(typeof result.content?.[0]?.text).toBe('string');
+				expect(result.content?.[0]?.text?.length).toBeGreaterThan(0);
+			});
 		});
 	});
 });
