@@ -80,14 +80,12 @@ export async function getFigmaData(args?: GetFigmaDataParams) {
 				};
 			} catch (error) {
 				console.error('Error retrieving node information:', error);
+				// Return the error without processing
 				return {
 					content: [
 						{
 							type: 'text',
-							text: analyzeFigmaError(error, {
-								fileId,
-								nodeId: nodeIds.join(','),
-							}),
+							text: serializeError(error),
 						},
 					],
 					isError: true,
@@ -111,11 +109,12 @@ export async function getFigmaData(args?: GetFigmaDataParams) {
 			};
 		} catch (error) {
 			console.error('Error retrieving file information:', error);
+			// Return the error without processing
 			return {
 				content: [
 					{
 						type: 'text',
-						text: analyzeFigmaError(error, { fileId }),
+						text: serializeError(error),
 					},
 				],
 				isError: true,
@@ -123,13 +122,12 @@ export async function getFigmaData(args?: GetFigmaDataParams) {
 		}
 	} catch (error) {
 		console.error('Unexpected error while retrieving Figma data:', error);
+		// Return unexpected errors without processing as well
 		return {
 			content: [
 				{
 					type: 'text',
-					text: `An unexpected error occurred: ${
-						error instanceof Error ? error.message : 'Unknown error'
-					}`,
+					text: serializeError(error),
 				},
 			],
 			isError: true,
@@ -317,14 +315,12 @@ export async function getFigmaImage(params: GetFigmaImageParams) {
 		};
 	} catch (error) {
 		console.error('Error retrieving image:', error);
+		// Return the error without processing
 		return {
 			content: [
 				{
 					type: 'text',
-					text: analyzeFigmaError(error, {
-						fileId,
-						nodeId,
-					}),
+					text: serializeError(error),
 				},
 			],
 			isError: true,
@@ -371,78 +367,56 @@ export async function fetchFigmaImage(
 }
 
 /**
- * Analyze Figma API error and return detailed error message
- * @param error Error object
- * @param context Additional context information about where the error occurred
- * @param context.fileId
- * @param context.nodeId
- * @returns Detailed error message
+ * Serialize error object to a detailed string representation
+ * This is needed because JSON.stringify(error) only returns "{}" for Error objects
+ * @param error Any error object
+ * @returns Detailed string representation of the error
  */
-export function analyzeFigmaError(
-	error: unknown,
-	context: { fileId?: string; nodeId?: string } = {},
-): string {
-	// Analyze Figma API error response
-	if (error && typeof error === 'object') {
-		// For Axios errors
-		if ('response' in error && error.response) {
-			const response = error.response as { status?: number; data?: unknown };
-			const status = response.status;
-			const data = response.data || {};
-			const errorMessage =
-				typeof data === 'object' && data !== null && 'message' in data
-					? data.message
-					: '';
+export function serializeError(error: unknown): string {
+	// If it's not an object or null, just stringify it
+	if (!error || typeof error !== 'object') {
+		return JSON.stringify(error, null, 2);
+	}
 
-			// Error messages based on status code
-			switch (status) {
-				case 400: {
-					return `Invalid request: Request parameters are invalid. ${errorMessage}`;
-				}
-				case 401: {
-					return 'API key is invalid or expired. Please check your FIGMA_ACCESS_TOKEN environment variable.';
-				}
-				case 403: {
-					return `Access denied. You don't have permission to access this Figma file (${context.fileId}) or the file is private.`;
-				}
-				case 404: {
-					if (context.nodeId) {
-						return `Node (${context.nodeId}) not found. Please check the node ID.`;
-					}
-					return `File (${context.fileId}) not found. Please check the file ID.`;
-				}
-				case 429: {
-					return 'API rate limit reached. Please wait and try again later.';
-				}
-				case 500:
-				case 502:
-				case 503:
-				case 504: {
-					return `Figma server error (${status}): Server is not responding or under maintenance.`;
-				}
-				default: {
-					return `Figma API error (${status}): ${
-						errorMessage || 'Unknown error details'
-					}`;
-				}
-			}
-		}
+	// Create a detailed error representation
+	const errorDetails: Record<string, unknown> = {};
 
-		// Timeout error
-		if (
-			'message' in error &&
-			typeof error.message === 'string' &&
-			error.message.includes('timeout')
-		) {
-			return 'Figma API request timed out. The file might be too large or there may be network connectivity issues.';
-		}
+	// Extract standard Error properties
+	if (error instanceof Error) {
+		errorDetails.name = error.name;
+		errorDetails.message = error.message;
+		errorDetails.stack = error.stack;
 
-		// Other errors
-		if ('message' in error && typeof error.message === 'string') {
-			return `Figma API error: ${error.message}`;
+		// Extract cause if available
+		if ('cause' in error && error.cause) {
+			errorDetails.cause = error.cause;
 		}
 	}
 
-	// Unknown error
-	return 'An unknown error occurred.';
+	// Extract all enumerable properties
+	for (const key in error) {
+		if (Object.prototype.hasOwnProperty.call(error, key)) {
+			try {
+				const value = (error as Record<string, unknown>)[key];
+
+				// Handle special case for response object
+				if (key === 'response' && value && typeof value === 'object') {
+					const response = value as Record<string, unknown>;
+					errorDetails.response = {
+						status: response.status,
+						statusText: response.statusText,
+						headers: response.headers,
+						data: response.data,
+					};
+				} else {
+					errorDetails[key] = value;
+				}
+			} catch (error_) {
+				errorDetails[key] =
+					`[Error extracting property: ${error_ instanceof Error ? error_.message : String(error_)}]`;
+			}
+		}
+	}
+
+	return JSON.stringify(errorDetails, null, 2);
 }
