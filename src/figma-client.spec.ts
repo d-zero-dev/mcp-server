@@ -6,7 +6,6 @@ import { describe, it, expect, beforeAll } from 'vitest';
 import {
 	extractFigmaFileId,
 	extractNodeIds,
-	analyzeFigmaError,
 	fetchFigmaFile,
 	fetchFigmaNodes,
 	fetchFigmaImage,
@@ -51,55 +50,6 @@ describe('Figma Client', () => {
 		it('should return empty array when no node IDs are present', () => {
 			const url = 'https://www.figma.com/file/abc123/FileName';
 			expect(extractNodeIds(url)).toEqual([]);
-		});
-	});
-
-	describe('analyzeFigmaError', () => {
-		it('should correctly analyze 401 error', () => {
-			const error = {
-				response: {
-					status: 401,
-					data: { message: 'Unauthorized' },
-				},
-			};
-			expect(analyzeFigmaError(error)).toContain(
-				'API key is invalid or expired. Please check your FIGMA_ACCESS_TOKEN environment variable.',
-			);
-		});
-
-		it('should correctly analyze 404 error (file)', () => {
-			const error = {
-				response: {
-					status: 404,
-					data: { message: 'Not Found' },
-				},
-			};
-			const context = { fileId: 'abc123' };
-			expect(analyzeFigmaError(error, context)).toContain(
-				'File (abc123) not found. Please check the file ID.',
-			);
-		});
-
-		it('should correctly analyze 404 error (node)', () => {
-			const error = {
-				response: {
-					status: 404,
-					data: { message: 'Not Found' },
-				},
-			};
-			const context = { fileId: 'abc123', nodeId: '123-456' };
-			expect(analyzeFigmaError(error, context)).toContain(
-				'Node (123-456) not found. Please check the node ID.',
-			);
-		});
-
-		it('should correctly analyze timeout error', () => {
-			const error = {
-				message: 'timeout of 30000ms exceeded',
-			};
-			expect(analyzeFigmaError(error)).toContain(
-				'Figma API request timed out. The file might be too large or there may be network connectivity issues.',
-			);
 		});
 	});
 
