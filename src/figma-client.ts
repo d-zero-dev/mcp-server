@@ -1,11 +1,9 @@
 import { ErrorCode, McpError } from '@modelcontextprotocol/sdk/types.js';
 
-// Figma API access token (from environment variable)
-const FIGMA_ACCESS_TOKEN = process.env.FIGMA_ACCESS_TOKEN;
-
 export type ImageFormat = 'jpg' | 'png' | 'svg';
 
 export type GetFigmaImageParams = {
+	fileId: string;
 	nodeId: string;
 	format?: ImageFormat;
 	scale?: number;
@@ -23,7 +21,7 @@ export async function getFigmaData(args?: GetFigmaDataParams) {
 	console.error('Starting Figma data retrieval');
 
 	// Get data using Figma API
-	if (!FIGMA_ACCESS_TOKEN) {
+	if (!process.env.FIGMA_ACCESS_TOKEN) {
 		return {
 			content: [
 				{
@@ -67,7 +65,11 @@ export async function getFigmaData(args?: GetFigmaDataParams) {
 		if (nodeIds.length > 0) {
 			console.error('Retrieving node information only');
 			try {
-				const nodesData = await fetchFigmaNodes(FIGMA_ACCESS_TOKEN, fileId, nodeIds);
+				const nodesData = await fetchFigmaNodes(
+					process.env.FIGMA_ACCESS_TOKEN,
+					fileId,
+					nodeIds,
+				);
 
 				console.error('Node information retrieved successfully');
 				return {
@@ -96,7 +98,7 @@ export async function getFigmaData(args?: GetFigmaDataParams) {
 		// Retrieve entire file information
 		console.error('Retrieving entire file information');
 		try {
-			const fileData = await fetchFigmaFile(FIGMA_ACCESS_TOKEN, fileId);
+			const fileData = await fetchFigmaFile(process.env.FIGMA_ACCESS_TOKEN, fileId);
 
 			console.error('File information retrieved successfully');
 			return {
@@ -223,16 +225,8 @@ export async function getFigmaImage(params: GetFigmaImageParams) {
 	console.error('Starting Figma image retrieval');
 
 	// Check if API token is set
-	if (!FIGMA_ACCESS_TOKEN) {
-		return {
-			content: [
-				{
-					type: 'text',
-					text: 'Figma API access token is not set. Please set the FIGMA_ACCESS_TOKEN environment variable.',
-				},
-			],
-			isError: true,
-		};
+	if (!process.env.FIGMA_ACCESS_TOKEN) {
+		throw new McpError(ErrorCode.InvalidParams, 'Figma API access token is not set');
 	}
 
 	// Validate parameters
@@ -240,92 +234,59 @@ export async function getFigmaImage(params: GetFigmaImageParams) {
 		throw new McpError(ErrorCode.InvalidParams, 'nodeId parameter is required');
 	}
 
-	// Extract file ID from node ID (format: fileId:nodeId)
-	const parts = params.nodeId.split(':');
-	if (parts.length !== 2) {
-		return {
-			content: [
-				{
-					type: 'text',
-					text: `Invalid node ID format: ${params.nodeId}. Expected format: fileId:nodeId`,
-				},
-			],
-			isError: true,
-		};
-	}
-
 	// Ensure fileId is a string (parts[0] is guaranteed to exist after the length check)
-	const fileId = parts[0];
+	const fileId = params.fileId;
 	const nodeId = params.nodeId;
 	const format = params.format || 'png';
 	const scale = params.scale || 1;
 
 	if (!fileId) {
+		throw new McpError(
+			ErrorCode.InvalidParams,
+			`Invalid node ID: ${params.nodeId}. Could not extract file ID. Please check the node ID format.`,
+		);
+	}
+
+	console.error(
+		`Retrieving image for node: ${nodeId}, format: ${format}, scale: ${scale}`,
+	);
+
+	// Call Figma API to get image URL
+	const imageData = await fetchFigmaImage(
+		process.env.FIGMA_ACCESS_TOKEN,
+		fileId,
+		[nodeId],
+		format,
+		scale,
+	);
+
+	// Extract image URL from response
+	const imageUrl = Object.values(imageData.images)?.[0];
+
+	// Type guard to ensure imageUrl is a string
+	if (typeof imageUrl !== 'string') {
 		return {
 			content: [
 				{
 					type: 'text',
-					text: `Invalid node ID: ${params.nodeId}. Could not extract file ID. Please check the node ID format.`,
+					text: `No image URL found for node: ${nodeId}`,
 				},
 			],
 			isError: true,
 		};
 	}
 
-	try {
-		console.error(
-			`Retrieving image for node: ${nodeId}, format: ${format}, scale: ${scale}`,
-		);
-
-		// Call Figma API to get image URL
-		const imageData = await fetchFigmaImage(
-			FIGMA_ACCESS_TOKEN,
-			fileId,
-			[nodeId],
-			format,
-			scale,
-		);
-
-		// Extract image URL from response
-		const imageUrl = imageData.images[nodeId];
-
-		// Type guard to ensure imageUrl is a string
-		if (typeof imageUrl !== 'string') {
-			return {
-				content: [
-					{
-						type: 'text',
-						text: `No image URL found for node: ${nodeId}`,
-					},
-				],
-				isError: true,
-			};
-		}
-
-		// At this point, imageUrl is guaranteed to be a string
-		const validImageUrl: string = imageUrl;
-		console.error('Image URL retrieved successfully');
-		return {
-			content: [
-				{
-					type: 'text',
-					text: validImageUrl,
-				},
-			],
-		};
-	} catch (error) {
-		console.error('Error retrieving image:', error);
-		// Return the error without processing
-		return {
-			content: [
-				{
-					type: 'text',
-					text: serializeError(error),
-				},
-			],
-			isError: true,
-		};
-	}
+	// At this point, imageUrl is guaranteed to be a string
+	const validImageUrl: string = imageUrl;
+	console.error('Image URL retrieved successfully');
+	return {
+		content: [
+			{
+				type: 'text',
+				text: validImageUrl,
+			},
+		],
+	};
 }
 
 // Figma API response type for image URLs
@@ -350,17 +311,17 @@ export async function fetchFigmaImage(
 	format: ImageFormat = 'png',
 	scale: number = 1,
 ): Promise<FigmaImageResponse> {
-	const response = await fetch(
-		`https://api.figma.com/v1/images/${fileId}?ids=${nodeIds.join(',')}&format=${format}&scale=${scale}`,
-		{
-			headers: {
-				'X-FIGMA-TOKEN': apiKey,
-			},
+	const url = `https://api.figma.com/v1/images/${fileId}?ids=${nodeIds.join(',')}&format=${format}&scale=${scale}`;
+	const response = await fetch(url, {
+		headers: {
+			'X-FIGMA-TOKEN': apiKey,
 		},
-	);
+	});
 
 	if (!response.ok) {
-		throw new Error(`Figma API Error: ${response.status} ${response.statusText}`);
+		throw new Error(
+			`Figma API Error: ${response.status} ${response.statusText} on URL: ${url}`,
+		);
 	}
 
 	return response.json();
