@@ -3,6 +3,14 @@ import { ErrorCode, McpError } from '@modelcontextprotocol/sdk/types.js';
 // Figma API access token (from environment variable)
 const FIGMA_ACCESS_TOKEN = process.env.FIGMA_ACCESS_TOKEN;
 
+export type ImageFormat = 'jpg' | 'png' | 'svg';
+
+export type GetFigmaImageParams = {
+	nodeId: string;
+	format?: ImageFormat;
+	scale?: number;
+};
+
 export type GetFigmaDataParams = {
 	figma_url?: string;
 };
@@ -206,6 +214,160 @@ export function extractNodeIds(url: string): string[] {
 		return nodeIdMatch[1].split(',');
 	}
 	return [];
+}
+
+/**
+ * Get Figma image URL for a specific node
+ * @param params Parameters for getting Figma image
+ * @returns Image URL
+ */
+export async function getFigmaImage(params: GetFigmaImageParams) {
+	console.error('Starting Figma image retrieval');
+
+	// Check if API token is set
+	if (!FIGMA_ACCESS_TOKEN) {
+		return {
+			content: [
+				{
+					type: 'text',
+					text: 'Figma API access token is not set. Please set the FIGMA_ACCESS_TOKEN environment variable.',
+				},
+			],
+			isError: true,
+		};
+	}
+
+	// Validate parameters
+	if (!params.nodeId) {
+		throw new McpError(ErrorCode.InvalidParams, 'nodeId parameter is required');
+	}
+
+	// Extract file ID from node ID (format: fileId:nodeId)
+	const parts = params.nodeId.split(':');
+	if (parts.length !== 2) {
+		return {
+			content: [
+				{
+					type: 'text',
+					text: `Invalid node ID format: ${params.nodeId}. Expected format: fileId:nodeId`,
+				},
+			],
+			isError: true,
+		};
+	}
+
+	// Ensure fileId is a string (parts[0] is guaranteed to exist after the length check)
+	const fileId = parts[0];
+	const nodeId = params.nodeId;
+	const format = params.format || 'png';
+	const scale = params.scale || 1;
+
+	if (!fileId) {
+		return {
+			content: [
+				{
+					type: 'text',
+					text: `Invalid node ID: ${params.nodeId}. Could not extract file ID. Please check the node ID format.`,
+				},
+			],
+			isError: true,
+		};
+	}
+
+	try {
+		console.error(
+			`Retrieving image for node: ${nodeId}, format: ${format}, scale: ${scale}`,
+		);
+
+		// Call Figma API to get image URL
+		const imageData = await fetchFigmaImage(
+			FIGMA_ACCESS_TOKEN,
+			fileId,
+			[nodeId],
+			format,
+			scale,
+		);
+
+		// Extract image URL from response
+		const imageUrl = imageData.images[nodeId];
+
+		// Type guard to ensure imageUrl is a string
+		if (typeof imageUrl !== 'string') {
+			return {
+				content: [
+					{
+						type: 'text',
+						text: `No image URL found for node: ${nodeId}`,
+					},
+				],
+				isError: true,
+			};
+		}
+
+		// At this point, imageUrl is guaranteed to be a string
+		const validImageUrl: string = imageUrl;
+		console.error('Image URL retrieved successfully');
+		return {
+			content: [
+				{
+					type: 'text',
+					text: validImageUrl,
+				},
+			],
+		};
+	} catch (error) {
+		console.error('Error retrieving image:', error);
+		return {
+			content: [
+				{
+					type: 'text',
+					text: analyzeFigmaError(error, {
+						fileId,
+						nodeId,
+					}),
+				},
+			],
+			isError: true,
+		};
+	}
+}
+
+// Figma API response type for image URLs
+export type FigmaImageResponse = {
+	err: null | string;
+	images: Record<string, string | undefined>;
+};
+
+/**
+ * Directly call Figma API to get image URLs
+ * @param apiKey Figma API key
+ * @param fileId File ID
+ * @param nodeIds Array of node IDs
+ * @param format Image format (png, jpg, svg)
+ * @param scale Image scale (1-4)
+ * @returns Image data with URLs
+ */
+export async function fetchFigmaImage(
+	apiKey: string,
+	fileId: string,
+	nodeIds: string[],
+	format: ImageFormat = 'png',
+	scale: number = 1,
+): Promise<FigmaImageResponse> {
+	const response = await fetch(
+		`https://api.figma.com/v1/images/${fileId}?ids=${nodeIds.join(',')}&format=${format}&scale=${scale}`,
+		{
+			headers: {
+				'X-FIGMA-TOKEN': apiKey,
+			},
+		},
+	);
+
+	if (!response.ok) {
+		throw new Error(`Figma API Error: ${response.status} ${response.statusText}`);
+	}
+
+	return response.json();
 }
 
 /**
