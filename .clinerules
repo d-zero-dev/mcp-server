@@ -31,7 +31,6 @@
     - `test`
     - `chore`
   - You must use the following scopes:
-    - Each package name
     - `repo`
     - `deps`
     - `github`
