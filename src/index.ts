@@ -1,4 +1,4 @@
-import type { ImageFormat } from './figma-client.js';
+import type { ImageFormat } from './figma/types.js';
 
 import fs from 'node:fs';
 import path from 'node:path';
@@ -13,7 +13,8 @@ import {
 } from '@modelcontextprotocol/sdk/types.js';
 
 import { getCodingGuidelines } from './coding-guideline.js';
-import { getFigmaData, getFigmaImage } from './figma-client.js';
+import { getFigmaData } from './figma/get-data.js';
+import { getFigmaImage } from './figma/get-image.js';
 
 const packageJsonPath = path.resolve(import.meta.dirname, '../package.json');
 const packageJson = JSON.parse(fs.readFileSync(packageJsonPath, 'utf8'));
