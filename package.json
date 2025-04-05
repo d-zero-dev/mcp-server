@@ -61,7 +61,7 @@
 		"dotenv": "16.4.7",
 		"husky": "9.1.7",
 		"npm-run-all2": "7.0.2",
-		"typescript": "5.8.2",
+		"typescript": "5.8.3",
 		"vitest": "3.0.8"
 	},
 	"packageManager": "npm@11.2.0",
