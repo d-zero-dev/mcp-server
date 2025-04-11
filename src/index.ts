@@ -1,16 +1,9 @@
-import type { ImageFormat } from './figma/types.js';
-
 import fs from 'node:fs';
 import path from 'node:path';
 
-import { Server } from '@modelcontextprotocol/sdk/server/index.js';
+import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import { StdioServerTransport } from '@modelcontextprotocol/sdk/server/stdio.js';
-import {
-	CallToolRequestSchema,
-	ErrorCode,
-	ListToolsRequestSchema,
-	McpError,
-} from '@modelcontextprotocol/sdk/types.js';
+import { z } from 'zod';
 
 import { getCodingGuidelines } from './coding-guideline.js';
 import { getFigmaData } from './figma/get-data.js';
@@ -20,135 +13,85 @@ const packageJsonPath = path.resolve(import.meta.dirname, '../package.json');
 const packageJson = JSON.parse(fs.readFileSync(packageJsonPath, 'utf8'));
 const version = packageJson.version || 'N/A';
 
-class CodingGuidelinesServer {
-	#server: Server;
+const server = new McpServer({
+	name: 'frontend_env',
+	version,
+});
 
-	constructor() {
-		this.#server = new Server(
-			{
-				name: 'frontend_env',
-				version,
-			},
-			{
-				capabilities: {
-					tools: {},
-				},
-			},
-		);
-
-		this.setupToolHandlers();
-
-		// Error handling
-		this.#server.onerror = (error) => console.error('[MCP Error]', error);
-		process.on('SIGINT', async () => {
-			await this.#server.close();
-			process.exit(0);
-		});
-	}
-
-	async run() {
-		const transport = new StdioServerTransport();
-		await this.#server.connect(transport);
-		console.error('D-ZERO Frontend Dev Env MCP server running on stdio');
-	}
-
-	setupToolHandlers() {
-		// Tool request handler
-		this.#server.setRequestHandler(CallToolRequestSchema, async (request) => {
-			const toolName = request.params.name;
-
-			// Handle each tool separately to ensure correct typing
-			switch (toolName) {
-				case 'get_coding_guidelines': {
-					// getCodingGuidelines doesn't take any arguments
-					return getCodingGuidelines();
-				}
-				case 'get_figma_data': {
-					return getFigmaData(request.params.arguments);
-				}
-				case 'get_figma_image': {
-					// Type assertion for getFigmaImage
-					if (!request.params.arguments) {
-						throw new McpError(
-							ErrorCode.InvalidParams,
-							'Arguments are required for get_figma_image',
-						);
-					}
-
-					// Convert arguments to GetFigmaImageParams
-					const args = request.params.arguments;
-					return getFigmaImage({
-						fileId: args.fileId as string,
-						nodeId: args.nodeId as string,
-						format: args.format as ImageFormat | undefined,
-						scale: args.scale as number | undefined,
-					});
-				}
-				// No default
-			}
-
-			throw new McpError(ErrorCode.MethodNotFound, `Unknown tool: ${toolName}`);
-		});
-
-		this.#server.setRequestHandler(ListToolsRequestSchema, () => ({
-			tools: [
+server.tool(
+	'get_coding_guidelines',
+	'Get D-Zero frontend coding guidelines',
+	{
+		techTypes: z
+			.enum(['html', 'css', 'js', 'media', 'web-components'])
+			.describe(
+				'Will create a coding guideline for the following tech types: html, css, js, media (images, videos, audio, etc.), web-components',
+			),
+	},
+	async ({ techTypes }) => {
+		const content = await getCodingGuidelines(techTypes);
+		return {
+			content: [
 				{
-					name: 'get_coding_guidelines',
-					description: 'Get D-Zero frontend coding guidelines',
-					inputSchema: {
-						type: 'object',
-						properties: {},
-						required: [],
-					},
+					type: 'text',
+					text: content,
 				},
+			],
+		};
+	},
+);
+
+server.tool(
+	'get_figma_data',
+	'Get data as a cached JSON file path and content from Figma URL',
+	{
+		figmaUrl: z
+			.string()
+			.describe('Figma URL (e.g.: https://www.figma.com/file/abcdef123456/FileName)'),
+	},
+	async ({ figmaUrl }) => {
+		const { filePath, content } = await getFigmaData({ figma_url: figmaUrl });
+		return {
+			content: [
 				{
-					name: 'get_figma_data',
-					description: 'Get data from Figma URL',
-					inputSchema: {
-						type: 'object',
-						properties: {
-							figma_url: {
-								type: 'string',
-								description:
-									'Figma URL (e.g.: https://www.figma.com/file/abcdef123456/FileName)',
-							},
-						},
-						required: ['figma_url'],
-					},
-				},
-				{
-					name: 'get_figma_image',
-					description: 'Get image URL from Figma node ID',
-					inputSchema: {
-						type: 'object',
-						properties: {
-							fileId: {
-								type: 'string',
-								description: 'Figma file ID (e.g.: abcdef123456)',
-							},
-							nodeId: {
-								type: 'string',
-								description: 'Figma node ID (e.g.: 123:456)',
-							},
-							format: {
-								type: 'string',
-								enum: ['png', 'jpg', 'svg'],
-								description: 'Image format (default: png)',
-							},
-							scale: {
-								type: 'number',
-								minimum: 1,
-								maximum: 4,
-								description: 'Image scale factor (1-4, default: 1)',
-							},
-						},
-						required: ['fileId', 'nodeId'],
+					type: 'resource',
+					resource: {
+						name: 'Figma Data',
+						uri: `file://${filePath}`,
+						text: content,
+						mediaType: 'application/json',
 					},
 				},
 			],
-		}));
-	}
-}
+		};
+	},
+);
 
-const server = new CodingGuidelinesServer();
-server.run().catch(console.error);
+server.tool(
+	'get_figma_image',
+	'Get image URL from Figma node ID',
+	{
+		fileId: z.string().describe('Figma file ID (e.g.: abcdef123456)'),
+		nodeId: z.string().describe('Figma node ID (e.g.: 123:456)'),
+		format: z
+			.optional(z.enum(['png', 'jpg', 'svg']))
+			.describe('Image format (default: png)'),
+		scale: z
+			.optional(z.number().min(1).max(4))
+			.describe('Image scale factor (1-4, default: 1)'),
+	},
+	async ({ fileId, nodeId, format, scale }) => {
+		const res = await getFigmaImage({ fileId, nodeId, format, scale });
+		return {
+			content: res.content.map((content) => {
+				return {
+					type: 'text',
+					text: content.text,
+				};
+			}),
+		};
+	},
+);
+
+const transport = new StdioServerTransport();
+await server.connect(transport).catch(console.error);
