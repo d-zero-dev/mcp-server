@@ -1,5 +1,7 @@
 import type { FigmaImageResponse, ImageFormat } from './types.js';
 
+import { ErrorCode, McpError } from '@modelcontextprotocol/sdk/types.js';
+
 /**
  * Directly call Figma API to get image URLs
  * @param apiKey Figma API key
@@ -24,8 +26,10 @@ export async function fetchFigmaImage(
 	});
 
 	if (!response.ok) {
-		throw new Error(
-			`Figma API Error: ${response.status} ${response.statusText} on URL: ${url}`,
+		const json = await response.json();
+		throw new McpError(
+			ErrorCode.InternalError,
+			`Figma API Error: ${response.status} ${response.statusText} ${json?.err ?? JSON.stringify(json)}`,
 		);
 	}
 

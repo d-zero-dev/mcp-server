@@ -11,48 +11,32 @@ import { serializeError } from './serialize-error.js';
 /**
  * Get Figma data
  * @param args Parameters for getting Figma data
+ * @param args.figma_url
  */
-export async function getFigmaData(args?: GetFigmaDataParams) {
+export async function getFigmaData({ figma_url }: GetFigmaDataParams) {
 	console.error('Starting Figma data retrieval');
 
 	// Get data using Figma API
 	if (!process.env.FIGMA_ACCESS_TOKEN) {
-		return {
-			content: [
-				{
-					type: 'text',
-					text: 'Figma API access token is not set. Please set the FIGMA_ACCESS_TOKEN environment variable.',
-				},
-			],
-			isError: true,
-		};
+		throw new McpError(
+			ErrorCode.InvalidParams,
+			'Figma API access token is not set. Please set the FIGMA_ACCESS_TOKEN environment variable.',
+		);
 	}
 
-	if (!args?.figma_url) {
-		throw new McpError(ErrorCode.InvalidParams, 'figma_url parameter is required');
-	}
-
-	const figmaUrl = args.figma_url;
-	const fileId = extractFigmaFileId(figmaUrl);
+	const fileId = extractFigmaFileId(figma_url);
 
 	if (!fileId) {
-		return {
-			content: [
-				{
-					type: 'text',
-					text: `Invalid Figma URL: ${figmaUrl} - Could not extract file ID. Please check the URL format.`,
-				},
-			],
-			isError: true,
-		};
+		throw new McpError(
+			ErrorCode.InvalidParams,
+			`Invalid Figma URL: ${figma_url} - Could not extract file ID. Please check the URL format.`,
+		);
 	}
 
-	console.error(`Retrieving Figma file: ${fileId}`);
-
 	// Extract node IDs
-	const nodeIds = extractNodeIds(figmaUrl);
+	const nodeIds = extractNodeIds(figma_url);
 	if (nodeIds.length > 0) {
-		console.error(`Node IDs: ${nodeIds.join(', ')}`);
+		console.log(`Node IDs: ${nodeIds.join(', ')}`);
 	}
 
 	try {
@@ -118,16 +102,10 @@ export async function getFigmaData(args?: GetFigmaDataParams) {
 			};
 		}
 	} catch (error) {
-		console.error('Unexpected error while retrieving Figma data:', error);
-		// Return unexpected errors without processing as well
-		return {
-			content: [
-				{
-					type: 'text',
-					text: serializeError(error),
-				},
-			],
-			isError: true,
-		};
+		throw new McpError(
+			ErrorCode.InternalError,
+			'Error retrieving node information:',
+			error,
+		);
 	}
 }

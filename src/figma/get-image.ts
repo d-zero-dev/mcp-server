@@ -53,20 +53,13 @@ export async function getFigmaImage(params: GetFigmaImageParams) {
 
 	// Type guard to ensure imageUrl is a string
 	if (typeof imageUrl !== 'string') {
-		return {
-			content: [
-				{
-					type: 'text',
-					text: `No image URL found for node: ${nodeId}`,
-				},
-			],
-			isError: true,
-		};
+		throw new McpError(ErrorCode.InternalError, `No image URL found for node: ${nodeId}`);
 	}
 
 	// At this point, imageUrl is guaranteed to be a string
 	const validImageUrl: string = imageUrl;
-	console.error('Image URL retrieved successfully');
+	console.log('Image URL retrieved successfully');
+
 	return {
 		content: [
 			{

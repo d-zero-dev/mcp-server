@@ -8,7 +8,7 @@ export type GetFigmaImageParams = {
 };
 
 export type GetFigmaDataParams = {
-	figma_url?: string;
+	figma_url: string;
 };
 
 // Figma API response type for image URLs

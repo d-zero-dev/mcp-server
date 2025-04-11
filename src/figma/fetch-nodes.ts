@@ -1,3 +1,5 @@
+import { ErrorCode, McpError } from '@modelcontextprotocol/sdk/types.js';
+
 /**
  * Directly call Figma API to get node data
  * @param apiKey Figma API key
@@ -20,7 +22,11 @@ export async function fetchFigmaNodes(
 	);
 
 	if (!response.ok) {
-		throw new Error(`Figma API Error: ${response.status} ${response.statusText}`);
+		const json = await response.json();
+		throw new McpError(
+			ErrorCode.InternalError,
+			`Figma API Error: ${response.status} ${response.statusText} ${json?.err ?? JSON.stringify(json)}`,
+		);
 	}
 
 	return response.json();
