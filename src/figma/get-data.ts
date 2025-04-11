@@ -1,12 +1,16 @@
 import type { GetFigmaDataParams } from './types.js';
 
+import crypto from 'node:crypto';
+import fs from 'node:fs/promises';
+import os from 'node:os';
+import path from 'node:path';
+
 import { ErrorCode, McpError } from '@modelcontextprotocol/sdk/types.js';
 
 import { extractFigmaFileId } from './extract-file-id.js';
 import { extractNodeIds } from './extract-node-ids.js';
 import { fetchFigmaFile } from './fetch-file.js';
 import { fetchFigmaNodes } from './fetch-nodes.js';
-import { serializeError } from './serialize-error.js';
 
 /**
  * Get Figma data
@@ -40,67 +44,22 @@ export async function getFigmaData({ figma_url }: GetFigmaDataParams) {
 	}
 
 	try {
-		// When retrieving specific node information
-		if (nodeIds.length > 0) {
-			console.error('Retrieving node information only');
-			try {
-				const nodesData = await fetchFigmaNodes(
-					process.env.FIGMA_ACCESS_TOKEN,
-					fileId,
-					nodeIds,
-				);
+		const nodesData =
+			nodeIds.length > 0
+				? await fetchFigmaNodes(process.env.FIGMA_ACCESS_TOKEN, fileId, nodeIds)
+				: await fetchFigmaFile(process.env.FIGMA_ACCESS_TOKEN, fileId);
 
-				console.error('Node information retrieved successfully');
-				return {
-					content: [
-						{
-							type: 'text',
-							text: JSON.stringify({ nodes: nodesData }, null, 2),
-						},
-					],
-				};
-			} catch (error) {
-				console.error('Error retrieving node information:', error);
-				// Return the error without processing
-				return {
-					content: [
-						{
-							type: 'text',
-							text: serializeError(error),
-						},
-					],
-					isError: true,
-				};
-			}
-		}
+		const cacheDir = path.join(os.tmpdir(), 'd-zero-dev', 'mcp-server', 'figma-data');
+		await fs.mkdir(cacheDir, { recursive: true });
+		const fileName = `${fileId}-${crypto.randomUUID()}.json`;
+		const filePath = path.join(cacheDir, fileName);
+		const content = JSON.stringify(nodesData, null, 2);
+		await fs.writeFile(filePath, content);
 
-		// Retrieve entire file information
-		console.error('Retrieving entire file information');
-		try {
-			const fileData = await fetchFigmaFile(process.env.FIGMA_ACCESS_TOKEN, fileId);
-
-			console.error('File information retrieved successfully');
-			return {
-				content: [
-					{
-						type: 'text',
-						text: JSON.stringify({ file: fileData }, null, 2),
-					},
-				],
-			};
-		} catch (error) {
-			console.error('Error retrieving file information:', error);
-			// Return the error without processing
-			return {
-				content: [
-					{
-						type: 'text',
-						text: serializeError(error),
-					},
-				],
-				isError: true,
-			};
-		}
+		return {
+			filePath,
+			content,
+		};
 	} catch (error) {
 		throw new McpError(
 			ErrorCode.InternalError,
