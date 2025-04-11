@@ -8,6 +8,7 @@ import { z } from 'zod';
 import { getCodingGuidelines } from './coding-guideline.js';
 import { getFigmaData } from './figma/get-data.js';
 import { getFigmaImage } from './figma/get-image.js';
+import { getComponentCreationInstruction } from './get-component-creation-instruction.js';
 
 const packageJsonPath = path.resolve(import.meta.dirname, '../package.json');
 const packageJson = JSON.parse(fs.readFileSync(packageJsonPath, 'utf8'));
@@ -30,6 +31,25 @@ server.tool(
 	},
 	async ({ techTypes }) => {
 		const content = await getCodingGuidelines(techTypes);
+		return {
+			content: [
+				{
+					type: 'text',
+					text: content,
+				},
+			],
+		};
+	},
+);
+
+server.tool(
+	'get_component_creation_instruction',
+	'Get component creation instruction',
+	{
+		step: z.optional(z.number().min(1).int()).describe('Step number (default: 1)'),
+	},
+	({ step }) => {
+		const content = getComponentCreationInstruction(step);
 		return {
 			content: [
 				{
