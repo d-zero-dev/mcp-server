@@ -48,7 +48,8 @@
 		}
 	},
 	"dependencies": {
-		"@modelcontextprotocol/sdk": "1.9.0"
+		"@modelcontextprotocol/sdk": "1.9.0",
+		"zod": "3.24.2"
 	},
 	"devDependencies": {
 		"@d-zero/commitlint-config": "5.0.0-alpha.62",
