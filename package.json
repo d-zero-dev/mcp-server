@@ -24,6 +24,7 @@
 	"scripts": {
 		"build": "tsc --project tsconfig.build.json",
 		"watch": "tsc --watch --project tsconfig.build.json",
+		"dev": "tsc --watch --project tsconfig.build.json",
 		"clean": "tsc --build --clean",
 		"test": "vitest run",
 		"lint": "run-s lint:eslint lint:prettier lint:textlint lint:cspell",
