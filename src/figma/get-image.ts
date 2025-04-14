@@ -10,8 +10,6 @@ import { fetchFigmaImage } from './fetch-image.js';
  * @returns Image URL
  */
 export async function getFigmaImage(params: GetFigmaImageParams) {
-	console.error('Starting Figma image retrieval');
-
 	// Check if API token is set
 	if (!process.env.FIGMA_ACCESS_TOKEN) {
 		throw new McpError(ErrorCode.InvalidParams, 'Figma API access token is not set');
@@ -35,10 +33,6 @@ export async function getFigmaImage(params: GetFigmaImageParams) {
 		);
 	}
 
-	console.error(
-		`Retrieving image for node: ${nodeId}, format: ${format}, scale: ${scale}`,
-	);
-
 	// Call Figma API to get image URL
 	const imageData = await fetchFigmaImage(
 		process.env.FIGMA_ACCESS_TOKEN,
@@ -58,7 +52,6 @@ export async function getFigmaImage(params: GetFigmaImageParams) {
 
 	// At this point, imageUrl is guaranteed to be a string
 	const validImageUrl: string = imageUrl;
-	console.log('Image URL retrieved successfully');
 
 	return {
 		content: [

@@ -114,4 +114,4 @@ server.tool(
 );
 
 const transport = new StdioServerTransport();
-await server.connect(transport).catch(console.error);
+await server.connect(transport);

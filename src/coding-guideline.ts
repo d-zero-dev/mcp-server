@@ -28,8 +28,6 @@ const guidelines = {
 export async function getCodingGuidelines(
 	techTypes: 'html' | 'css' | 'js' | 'media' | 'web-components',
 ) {
-	console.log('techTypes', techTypes);
-
 	const urls = [...guidelines.general, ...guidelines[techTypes]];
 
 	const contents = await Promise.all(

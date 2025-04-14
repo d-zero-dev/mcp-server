@@ -18,8 +18,6 @@ import { fetchFigmaNodes } from './fetch-nodes.js';
  * @param args.figma_url
  */
 export async function getFigmaData({ figma_url }: GetFigmaDataParams) {
-	console.error('Starting Figma data retrieval');
-
 	// Get data using Figma API
 	if (!process.env.FIGMA_ACCESS_TOKEN) {
 		throw new McpError(
@@ -39,9 +37,6 @@ export async function getFigmaData({ figma_url }: GetFigmaDataParams) {
 
 	// Extract node IDs
 	const nodeIds = extractNodeIds(figma_url);
-	if (nodeIds.length > 0) {
-		console.log(`Node IDs: ${nodeIds.join(', ')}`);
-	}
 
 	try {
 		const nodesData =

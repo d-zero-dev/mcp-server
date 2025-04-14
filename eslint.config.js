@@ -8,7 +8,6 @@ export default [
 	{
 		rules: {
 			'@typescript-eslint/ban-ts-comment': 0,
-			'no-console': 0,
 			'unicorn/prefer-add-event-listener': 0,
 			'unicorn/prefer-top-level-await': 0,
 		},
