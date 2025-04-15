@@ -36,7 +36,7 @@ export function getComponentCreationInstruction(step: number = 1) {
 				'`.cache/コンポーネント名.png`を解析し全体デザインを確認し、構造やスタイルを分析せよ。',
 				'Figmaデータに`boundVariables`ノードをもつ場合、ユーザーにVariablesの詳細情報を要求せよ。',
 				'ユーザーの最初の指示に含まれている場合もあるので、思い出すこと。',
-				'ユーザーからVariablesの詳細情報を得られたら、ステップ4を実行せよ。',
+				'ユーザーからVariablesの詳細情報を得られたら、ステップ5を実行せよ。',
 				'拒否されたら、ステップ6を実行せよ。',
 			].join('\n');
 		}
