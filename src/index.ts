@@ -8,7 +8,7 @@ import { z } from 'zod';
 import { getCodingGuidelines } from './coding-guideline.js';
 import { getFigmaData } from './figma/get-data.js';
 import { getFigmaImage } from './figma/get-image.js';
-import { getComponentCreationInstruction } from './get-component-creation-instruction.js';
+import { getTaskStep } from './utils/get-task-step.js';
 
 const packageJsonPath = path.resolve(import.meta.dirname, '../package.json');
 const packageJson = JSON.parse(fs.readFileSync(packageJsonPath, 'utf8'));
@@ -43,13 +43,18 @@ server.tool(
 );
 
 server.tool(
-	'get_component_creation_instruction',
-	'Get component creation instruction',
+	'get_task_step',
+	'Get task step',
 	{
+		cwd: z.string().describe('Current working directory (Absolute path)'),
+		filePath: z.string().describe('Task file path (Relative to cwd)'),
 		step: z.optional(z.number().min(1).int()).describe('Step number (default: 1)'),
 	},
-	({ step }) => {
-		const content = getComponentCreationInstruction(step);
+	async ({ cwd, filePath, step }) => {
+		const content = await getTaskStep(
+			path.isAbsolute(filePath) ? filePath : path.join(cwd, filePath),
+			step,
+		);
 		return {
 			content: [
 				{
