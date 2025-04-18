@@ -75,17 +75,12 @@ server.tool(
 			.describe('Figma URL (e.g.: https://www.figma.com/file/abcdef123456/FileName)'),
 	},
 	async ({ figmaUrl }) => {
-		const { filePath, content } = await getFigmaData({ figma_url: figmaUrl });
+		const { content } = await getFigmaData({ figma_url: figmaUrl });
 		return {
 			content: [
 				{
-					type: 'resource',
-					resource: {
-						name: 'Figma Data',
-						uri: `file://${filePath}`,
-						text: content,
-						mediaType: 'application/json',
-					},
+					type: 'text',
+					text: content,
 				},
 			],
 		};
