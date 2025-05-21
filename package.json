@@ -68,7 +68,7 @@
 	},
 	"packageManager": "npm@11.3.0",
 	"volta": {
-		"node": "22.14.0",
+		"node": "22.16.0",
 		"npm": "11.3.0"
 	}
 }
